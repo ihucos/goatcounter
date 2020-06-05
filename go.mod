@@ -2,6 +2,14 @@ module zgo.at/goatcounter
 
 go 1.13
 
+//replace zgo.at/zdb => ../zdb
+
+// cgo branch
+replace zgo.at/zdb => zgo.at/zdb v0.0.0-20200605055022-2c5d728f07d7
+
+// cgo branch
+replace github.com/mattn/go-sqlite3 => github.com/zgoat/go-sqlite3 v1.13.1-0.20200605053529-678cb5b8512e
+
 require (
 	github.com/PuerkitoBio/goquery v1.5.1
 	github.com/arp242/geoip2-golang v1.4.0
