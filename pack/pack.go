@@ -12931,7 +12931,7 @@ http://nicolasgallagher.com/micro-clearfix-hack/
 				return
 
 			var pos = {left: e.pageX, top: (e.pageY + 20)}
-			if (t.closest('.chart-bar').length > 0) {
+			if ((t.is('div') || t.is('#cursor')) && t.closest('.chart-bar').length > 0) {
 				var x = t.offset().left
 				pos = {
 					left: (x + 8),
@@ -13464,12 +13464,10 @@ form .err  { color: red; display: block; }
 }
 
 /* Totals */
-.count-list .totals                 { background-color: #f7f7f7; border-bottom: 1px solid #999; }
+.count-list .totals                    { background-color: #f7f7f7; border-bottom: 1px solid #999; }
+.count-list .totals .load-refs.desktop { float: right; margin-right: 1em; }
+.count-list .totals .bounce            { background-color: #f7f7f7; }
 .count-list .pages::before { content: ''; display: block; height: 1rem; } /* Hack to add margin to tbody */
-.count-list .totals .load-refs.desktop {
-	float: right;
-	margin-right: 1em;
-}
 
 .label-event { background-color: #f6f3da; border-radius: 1em; padding: .1em .3em; }
 
@@ -13484,6 +13482,7 @@ form .err  { color: red; display: block; }
 .rlink { display: inline-block; overflow: hidden;
          max-width: 17.5rem; text-overflow: ellipsis; white-space: nowrap; }
 .rlink { min-width: 3em; } /* Make very short paths (like just /) easier to click/touch. */
+.page-title             { display: block; margin-top: -6px; }
 .page-title b, .rlink b { background-color: yellow; }
 
 .count-list tr {
@@ -13564,23 +13563,12 @@ form .err  { color: red; display: block; }
 .go { word-break: normal; }
 
 /* Bar char */
-.chart-bar {
-	display: flex;
-	align-items: flex-end;
-}
-.chart-bar > .half {
-	border-top: 1px solid #ddd;
-	position: absolute;
-	top: 50%;
-	left: 0;
-	right: 0;
-}
-.chart-bar > div {
-	position: relative;
-	flex-grow: 1;
-}
-
-.chart-bar > div       { background: #9a15a4; }
+.chart-bar span     { margin-left: 0; }  /* reset form span */
+.chart-bar          { display: flex; align-items: flex-end; }
+.chart-bar >div     { position: relative; flex-grow: 1; background: #9a15a4; }
+.chart-bar >.half   { border-top: 1px solid #ddd; position: absolute; top: 50%; left: 0; right: 0; }
+.chart-bar >.bounce { position: absolute; top: -.6rem; left: .3rem; background-color: #fff;
+                      font-size .9em; padding: 0 .3em; line-height: 1rem; }
 
 .chart-bar > #cursor {
 	position: absolute;
@@ -15017,13 +15005,19 @@ var Templates = map[string][]byte{
 	<tr id="{{$h.Path}}"{{if eq $h.Path $.ShowRefs}}class="target"{{end}}>
 		<td>
 			<span title="Visits">{{nformat $h.CountUnique $.Site}}</span><br>
-			<span title="Pageviews" class="views">{{nformat $h.Count $.Site}}</span><br>
+			<span title="Pageviews" class="views">{{nformat $h.Count $.Site}}</span>
 		</td>
 		<td class="hide-mobile">
-			<a class="load-refs rlink" title="{{$h.Path}}" href="?showrefs={{$h.Path}}&period-start={{tformat $.Site $.PeriodStart ""}}&period-end={{tformat $.Site $.PeriodEnd ""}}#{{$h.Path}}">{{$h.Path}}</a><br>
-			<small class="page-title {{if not $h.Title}}no-title{{end}}">{{if $h.Title}}{{$h.Title}}{{else}}<em>(no title)</em>{{end}}</small>
-			{{if $h.Event}}<sup class="label-event">event</sup>{{end}}
-			{{if and $.Site.LinkDomain (not $h.Event)}}<sup><a class="go" target="_blank" rel="noopener" href="https://{{$.Site.LinkDomain}}{{$h.Path}}">go</a></sup>{{end}}
+			<a class="load-refs rlink" title="{{$h.Path}}" href="?showrefs={{$h.Path}}&period-start={{tformat $.Site $.PeriodStart ""}}&period-end={{tformat $.Site $.PeriodEnd ""}}#{{$h.Path}}">{{$h.Path}}</a>
+			<small class="page-title {{if not $h.Title}}no-title{{end}}">
+				{{if $h.Title}}{{$h.Title}}{{else}}<em>(no title)</em>{{end}}
+				{{if $h.Event}}
+					<sup class="label-event">event</sup>
+				{{end}}
+				{{if and $.Site.LinkDomain (not $h.Event)}}
+					<sup><a class="go" target="_blank" rel="noopener" href="https://{{$.Site.LinkDomain}}{{$h.Path}}">go</a></sup>
+				{{end}}
+			</small>
 		</td>
 		<td>
 			<div class="show-mobile">
@@ -15032,10 +15026,16 @@ var Templates = map[string][]byte{
 				{{if $h.Event}}<sup class="label-event">event</sup>{{end}}
 				{{if and $.Site.LinkDomain (not $h.Event)}}<sup><a class="go" target="_blank" rel="noopener" href="https://{{$.Site.LinkDomain}}{{$h.Path}}">go</a></sup>{{end}}
 			</div>
+
 			<div class="chart chart-bar">
+				<small class="bounce">
+					<span title="Bounce rate">{{$h.Bounce}}%</span>{{/* ·
+					<span title="Avg. time on page">{{$h.TimeAvg | dformat}}</span>*/}}
+				</small>
 				<span class="half"></span>
 				{{bar_chart $.Context .Stats $.Max $.Daily}}
 			</div>
+
 			<div class="refs">{{if and $.Refs (eq $.ShowRefs $h.Path)}}
 				{{template "_backend_refs.gohtml" map "Refs" $.Refs "Site" $.Site "Totals" false}}
 				{{if $.MoreRefs}}<a href="#_", class="load-more-refs">Show more</a>{{end}}
@@ -15749,6 +15749,10 @@ want to modify that in JavaScript; you can use <code>goatcounter.endpoint</code>
 			<a class="load-refs" href="?showrefs=TOTAL%20&period-start={{tformat $.Site $.PeriodStart ""}}&period-end={{tformat $.Site $.PeriodEnd ""}}#TOTAL%20">Top referrers</a>
 		</div>
 		<div class="chart chart-bar chart-totals">
+			<small class="bounce">
+				<span title="Bounce rate">{{.TotalPages.Bounce}}%</span>{{/* ·
+				<span title="Avg. time on page">{{.TotalPages.TimeAvg | dformat}}</span>*/}}
+			</small>
 			<span class="half"></span>
 			{{bar_chart .Context .TotalPages.Stats .Max .Daily}}
 		</div>
