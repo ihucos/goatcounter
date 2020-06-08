@@ -126,6 +126,9 @@ func (h *HitStats) List(
 	}
 
 	hh := *h
+	if len(hh) == 0 { // Nothing to display, exit early.
+		return 0, 0, 0, 0, false, nil
+	}
 	paths := make([]string, len(hh))
 	for i := range hh {
 		paths[i] = hh[i].Path
@@ -160,18 +163,36 @@ func (h *HitStats) List(
 		if err != nil {
 			return 0, 0, 0, 0, false, errors.Wrap(err, "HitStats.List get hit_stats")
 		}
+
+		for i := range hh {
+			for _, s := range st {
+				if s.Path == hh[i].Path {
+					var x, y []int
+					zjson.MustUnmarshal(s.Stats, &x)
+					zjson.MustUnmarshal(s.StatsUnique, &y)
+					hh[i].Title = s.Title
+					hh[i].Stats = append(hh[i].Stats, Stat{
+						Day:          s.Day.Format("2006-01-02"),
+						Hourly:       x,
+						HourlyUnique: y,
+					})
+				}
+			}
+		}
+
 		l = l.Since("select hits_stats")
 	}
 
 	// Add bounce rate.
 	{
-		query := `
+		query := `/* HitStats.List: get bounce */
 			select
 				path,
-				round(sum(first_visit)::float8 / count(path) * 100) as bounce
+				round(cast(sum(first_visit) as float) / count(path) * 100) as bounce
 			from hits
 			where
 				site=? and
+				bot=0 and
 				created_at>=? and
 				created_at<=? and
 				path in (?)
@@ -199,25 +220,6 @@ func (h *HitStats) List(
 			}
 		}
 		l = l.Since("select bounce")
-	}
-
-	// Add the hit_stats.
-	{
-		for i := range hh {
-			for _, s := range st {
-				if s.Path == hh[i].Path {
-					var x, y []int
-					zjson.MustUnmarshal(s.Stats, &x)
-					zjson.MustUnmarshal(s.StatsUnique, &y)
-					hh[i].Title = s.Title
-					hh[i].Stats = append(hh[i].Stats, Stat{
-						Day:          s.Day.Format("2006-01-02"),
-						Hourly:       x,
-						HourlyUnique: y,
-					})
-				}
-			}
-		}
 	}
 
 	// Fill in blank days.
